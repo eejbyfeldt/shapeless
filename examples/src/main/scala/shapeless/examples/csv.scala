@@ -111,7 +111,7 @@ object CSVConverter {
               back <- sct.from(if (after.isEmpty) after else after.tail)
             } yield front :: back
 
-          case _ => fail("Cannot convert '" ++ s ++ "' to HList")
+          case null => fail("Cannot convert '" ++ s ++ "' to HList")
         }
 
         def to(ft: V :: T): String = {
@@ -133,7 +133,7 @@ object CSVConverter {
             sct.from(if (s.isEmpty) s else s.tail).map(None :: _)
           }
 
-        case _ => fail("Cannot convert '" ++ s ++ "' to HList")
+        case null => fail("Cannot convert '" ++ s ++ "' to HList")
       }
 
       def to(ft: Option[V] :: T): String = {
