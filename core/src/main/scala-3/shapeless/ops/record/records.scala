@@ -22,18 +22,24 @@ import shapeless.labelled.FieldType
 
 import scala.compiletime.ops.int.S
 
-type FindField[R <: HList, K] = FindField0[R, K, 0]
-type FindField0[R <: HList, K, I <: Int] <: (Any, Int) = R match {
-  case FieldType[K, f] :: t => (f, I)
-  case _ :: t => FindField0[t, K, S[I]]
+
+type FindFieldIndex[R <: HList, K] = FindFieldIndex0[R, K, 0]
+type FindFieldIndex0[R <: HList, K, I <: Int] <: Int = R match {
+  case FieldType[K, _] :: t => I
+  case _ :: t => FindFieldIndex0[t, K, S[I]]
+}
+
+type FindField[R <: HList, K] = R match {
+  case FieldType[K, f] :: t => f
+  case _ :: t => FindField[t, K]
 }
 
 trait SelectorScalaCompat {
 
   transparent inline given[R <: HList, K](
-    using idx: ValueOf[scala.Tuple.Elem[FindField[R, K], 1]]
-  ): Selector.Aux[R, K, scala.Tuple.Head[FindField[R, K]]] =
-    new UnsafeSelector(idx.value).asInstanceOf[Selector.Aux[R, K, scala.Tuple.Head[FindField[R, K]]]]
+    using idx: ValueOf[FindFieldIndex[R, K]]
+  ): Selector.Aux[R, K, FindField[R, K]] =
+    new UnsafeSelector(idx.value).asInstanceOf[Selector.Aux[R, K, FindField[R, K]]]
 }
 
 type IndexOf[L <: HList, E] = IndexOf0[L, E, 0]
@@ -69,8 +75,8 @@ type ReplaceField[R <: HList, K, B] <: HList = R match {
 
 trait ModifierScalaCompat {
   transparent inline given [R <: HList, K, A, B](
-    using ev: scala.Tuple.Head[FindField[R, K]] <:< A,
-    idx: ValueOf[scala.Tuple.Elem[FindField[R, K], 1]]
+    using ev: FindField[R, K] <:< A,
+    idx: ValueOf[FindFieldIndex[R, K]]
   ): Modifier.Aux[R, K, A, B, ReplaceField[R, K, B]] =
     new UnsafeModifier(idx.value).asInstanceOf[Modifier.Aux[R, K, A, B, ReplaceField[R, K, B]]]
 }
@@ -80,17 +86,17 @@ type ReversePrependHList[L <: HList, M <: HList] <: HList = L match {
   case h :: t => ReversePrependHList[t, h :: M]
 }
 
-type RemoveField[R <: HList, K] = RemoveField0[R, K, 0, HNil]
-type RemoveField0[R <: HList, K, I <: Int, Acc <: HList] <: (Int, Any, HList) = R match {
-  case FieldType[K, f] :: t => (I, f, ReversePrependHList[Acc, t])
-  case h :: t => RemoveField0[t, K, S[I], h :: Acc]
+type RemoveField[R <: HList, K] = RemoveField0[R, K, HNil]
+type RemoveField0[R <: HList, K, Acc <: HList] <: (Any, HList) = R match {
+  case FieldType[K, f] :: t => (f, ReversePrependHList[Acc, t])
+  case h :: t => RemoveField0[t, K, h :: Acc]
 }
 
 trait RemoverScalaCompat {
   transparent inline given [R <: HList, K](
-    using idx: ValueOf[scala.Tuple.Head[RemoveField[R, K]]]
-  ): Remover.Aux[R, K, scala.Tuple.Tail[RemoveField[R, K]]] =
-    new UnsafeRemover(idx.value).asInstanceOf[Remover.Aux[R, K, scala.Tuple.Tail[RemoveField[R, K]]]]
+    using idx: ValueOf[FindFieldIndex[R, K]]
+  ): Remover.Aux[R, K, RemoveField[R, K]] =
+    new UnsafeRemover(idx.value).asInstanceOf[Remover.Aux[R, K, RemoveField[R, K]]]
 }
 
 type HasNoKey[R <: HList, K] <: Boolean = R match {

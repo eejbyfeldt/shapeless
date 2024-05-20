@@ -10,7 +10,9 @@ trait HListScalaCompat {
   //TODO: tailrec
   def tupleToHList[T <: scala.Tuple](tuple: T): TupleToHList[T] = tuple match {
     case _: EmptyTuple  => HNil
-    case cons: *:[h, t] => ::(cons.head, tupleToHList(cons.tail))
+    case cons: *:[h, t] =>
+      val tmp = cons: *:[h, t]
+      ::(tmp.head, tupleToHList(tmp.tail))
   }
 
   type HListToTuple[L <: HList] <: scala.Tuple = L match {
