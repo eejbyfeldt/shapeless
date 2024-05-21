@@ -37,18 +37,29 @@ trait GenericScalaCompat extends GenericScalaCompatLowPriority {
   }
 }
 
-trait GenericScalaCompatLowPriority {
+// This class only exists to workaround https://github.com/scala/scala3/issues/17907 that makes the compiler fail to find implicit when a match type is used in the return type.
+trait GenericFromProduct[T] extends Generic[T]
+
+object GenericFromProduct {
+  type Aux[T, R] =  GenericFromProduct[T] { type Repr = R }
 
   transparent inline given materializeProduct[T <: Product](
     using m: scala.deriving.Mirror.ProductOf[T]
-  ): Generic.Aux[T, HList.TupleToHList[m.MirroredElemTypes]] =
-    new Generic[T] {
+  ): GenericFromProduct.Aux[T, HList.TupleToHList[m.MirroredElemTypes]] =
+    new GenericFromProduct[T] {
       override type Repr = HList.TupleToHList[m.MirroredElemTypes]
 
       override def to(t: T): Repr = HList.tupleToHList(scala.Tuple.fromProductTyped(t))
 
       override def from(r: Repr): T = m.fromProduct(HList.hListToTuple(r))
     }
+}
+
+trait GenericScalaCompatLowPriority {
+
+  transparent inline given materializeProduct[T <: Product](
+    using i: GenericFromProduct[T]
+  ): Generic.Aux[T, i.Repr] = i
 
   transparent inline given materializeSum[T](
     using m: scala.deriving.Mirror.SumOf[T],
@@ -86,7 +97,7 @@ trait LabelledGenericScalaCompat {
   transparent inline given materializeProduct[T <: Product](
     using m: scala.deriving.Mirror.ProductOf[T]
   ): LabelledGeneric.Aux[T, MakeFieldsProduct[m.MirroredElemTypes, m.MirroredElemLabels]] =
-    LabelledGeneric.unsafeInstance(Generic.materializeProduct)
+    LabelledGeneric.unsafeInstance(GenericFromProduct.materializeProduct)
 
   transparent inline given materializeSum[T](
     using m: scala.deriving.Mirror.SumOf[T],
